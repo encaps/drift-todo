@@ -3,11 +3,16 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTodos } from '@/hooks/useTodos'
-import { CATEGORIES, type Category } from '@/lib/types'
+import { CATEGORIES, VIEWS, type Category, type View } from '@/lib/types'
 import TodoItem from './TodoItem'
 import QuickAdd from './QuickAdd'
 
 export default function TodoApp() {
+  const [activeView, setActiveView] = useState<View>(() => {
+    if (typeof window === 'undefined') return 'private'
+    return (localStorage.getItem('drift-view') as View) || 'private'
+  })
+
   const {
     todos,
     loading,
@@ -19,13 +24,19 @@ export default function TodoApp() {
     moveTodo,
     editTodo,
     clearCompleted,
-  } = useTodos()
+  } = useTodos(activeView)
 
   const [activeTab, setActiveTab] = useState<Category>('daily')
   const [quickAddOpen, setQuickAddOpen] = useState(false)
   const [isDark, setIsDark] = useState(true)
   const [showCompleted, setShowCompleted] = useState(false)
   const [notificationBanner, setNotificationBanner] = useState(false)
+
+  // Persist active view
+  const switchView = (v: View) => {
+    setActiveView(v)
+    localStorage.setItem('drift-view', v)
+  }
 
   // Theme init
   useEffect(() => {
@@ -153,6 +164,32 @@ export default function TodoApp() {
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-semibold tracking-tight">drift</h1>
+
+            {/* View switcher */}
+            <div className="flex gap-0.5 p-0.5 bg-surface rounded-lg border border-surface-border">
+              {VIEWS.map((v) => (
+                <button
+                  key={v.key}
+                  onClick={() => switchView(v.key)}
+                  className={`
+                    relative px-2.5 py-1 rounded-md text-xs font-medium transition-all
+                    ${activeView === v.key
+                      ? 'text-foreground'
+                      : 'text-muted hover:text-foreground'}
+                  `}
+                >
+                  {activeView === v.key && (
+                    <motion.div
+                      layoutId="activeView"
+                      className="absolute inset-0 rounded-md bg-background shadow-sm"
+                      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                    />
+                  )}
+                  <span className="relative z-10">{v.icon} {v.label}</span>
+                </button>
+              ))}
+            </div>
+
             <span className="text-xs text-muted font-mono">
               {mode === 'postgres' ? '● synced' : '○ local'}
             </span>

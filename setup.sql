@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS todos (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   text TEXT NOT NULL,
   category TEXT NOT NULL CHECK (category IN ('daily', 'soon', 'someday')),
+  view TEXT NOT NULL DEFAULT 'private' CHECK (view IN ('work', 'private')),
   completed BOOLEAN DEFAULT false,
   position INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT now(),
@@ -26,3 +27,8 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_todos_category ON todos (category);
 CREATE INDEX IF NOT EXISTS idx_todos_completed ON todos (completed);
+CREATE INDEX IF NOT EXISTS idx_todos_view ON todos (view);
+
+-- Migration: run this if the table already exists
+-- ALTER TABLE todos ADD COLUMN IF NOT EXISTS view TEXT NOT NULL DEFAULT 'private' CHECK (view IN ('work', 'private'));
+-- CREATE INDEX IF NOT EXISTS idx_todos_view ON todos (view);

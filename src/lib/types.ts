@@ -1,14 +1,22 @@
 export type Category = 'daily' | 'soon' | 'someday'
 
+export type View = 'work' | 'private'
+
 export interface Todo {
   id: string
   text: string
   category: Category
+  view: View
   completed: boolean
   position: number
   created_at: string
   completed_at: string | null
 }
+
+export const VIEWS: { key: View; label: string; icon: string }[] = [
+  { key: 'work', label: 'Work', icon: '💼' },
+  { key: 'private', label: 'Private', icon: '🏠' },
+]
 
 export const CATEGORIES: { key: Category; label: string; color: string; bgColor: string; borderColor: string; icon: string }[] = [
   {

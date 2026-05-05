@@ -9,7 +9,7 @@ export async function PATCH(
   const body = await request.json()
 
   // Build dynamic update from provided fields
-  const allowedFields = ['text', 'category', 'completed', 'completed_at', 'position']
+  const allowedFields = ['text', 'category', 'view', 'completed', 'completed_at', 'position']
   const updates = Object.entries(body).filter(([key]) => allowedFields.includes(key))
 
   if (updates.length === 0) {

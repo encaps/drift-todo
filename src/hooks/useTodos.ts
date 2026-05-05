@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { Todo, Category } from '@/lib/types'
+import type { Todo, Category, View } from '@/lib/types'
 
 const STORAGE_KEY = 'drift-todos'
 const POLL_INTERVAL = 5000 // 5s polling for cross-device sync
@@ -30,19 +30,20 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T | null
   }
 }
 
-export function useTodos() {
+export function useTodos(view: View) {
   const [todos, setTodos] = useState<Todo[]>([])
   const [loading, setLoading] = useState(true)
   const [mode, setMode] = useState<'local' | 'postgres'>('local')
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Determine mode and load initial data
+  // Determine mode and load initial data — re-run when view changes
   useEffect(() => {
     let cancelled = false
+    setLoading(true)
 
     async function init() {
       // Try to load from API first
-      const data = await apiFetch<Todo[]>('/api/todos')
+      const data = await apiFetch<Todo[]>(`/api/todos?view=${view}`)
       if (!cancelled && data) {
         setMode('postgres')
         setTodos(data)
@@ -50,13 +51,13 @@ export function useTodos() {
 
         // Start polling for cross-device sync
         pollRef.current = setInterval(async () => {
-          const fresh = await apiFetch<Todo[]>('/api/todos')
+          const fresh = await apiFetch<Todo[]>(`/api/todos?view=${view}`)
           if (fresh) setTodos(fresh)
         }, POLL_INTERVAL)
       } else if (!cancelled) {
         // Fall back to localStorage
         setMode('local')
-        setTodos(loadLocal())
+        setTodos(loadLocal().filter((t) => t.view === view))
         setLoading(false)
       }
     }
@@ -67,7 +68,7 @@ export function useTodos() {
       cancelled = true
       if (pollRef.current) clearInterval(pollRef.current)
     }
-  }, [])
+  }, [view])
 
   // Persist to localStorage when in local mode
   useEffect(() => {
@@ -86,6 +87,7 @@ export function useTodos() {
         id: crypto.randomUUID(),
         text: text.trim(),
         category,
+        view,
         completed: false,
         position: maxPos + 1,
         created_at: new Date().toISOString(),
@@ -103,7 +105,7 @@ export function useTodos() {
         })
       }
     },
-    [todos, mode]
+    [todos, mode, view]
   )
 
   const completeTodo = useCallback(
@@ -187,9 +189,9 @@ export function useTodos() {
     setTodos((prev) => prev.filter((t) => !t.completed))
 
     if (mode === 'postgres') {
-      await apiFetch('/api/todos/completed', { method: 'DELETE' })
+      await apiFetch(`/api/todos/completed?view=${view}`, { method: 'DELETE' })
     }
-  }, [mode])
+  }, [mode, view])
 
   return {
     todos,
