@@ -1,21 +1,29 @@
 export type Category = 'daily' | 'soon' | 'someday'
 
-export type View = 'work' | 'private'
+export interface Section {
+  id: string
+  key: string
+  label: string
+  icon: string
+  position: number
+  created_at: string
+}
 
 export interface Todo {
   id: string
   text: string
   category: Category
-  view: View
+  view: string
   completed: boolean
   position: number
   created_at: string
   completed_at: string | null
 }
 
-export const VIEWS: { key: View; label: string; icon: string }[] = [
-  { key: 'work', label: 'Work', icon: '💼' },
-  { key: 'private', label: 'Private', icon: '🏠' },
+export const DEFAULT_SECTIONS: Section[] = [
+  { id: 'default-work', key: 'work', label: 'Work', icon: '💼', position: 0, created_at: '' },
+  { id: 'default-private', key: 'private', label: 'Private', icon: '🏠', position: 1, created_at: '' },
+  { id: 'default-groceries', key: 'groceries', label: 'Groceries', icon: '🛒', position: 2, created_at: '' },
 ]
 
 export const CATEGORIES: { key: Category; label: string; color: string; bgColor: string; borderColor: string; icon: string }[] = [

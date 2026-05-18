@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { Todo, Category, View } from '@/lib/types'
+import type { Todo, Category } from '@/lib/types'
 
 const STORAGE_KEY = 'drift-todos'
 const POLL_INTERVAL = 5000 // 5s polling for cross-device sync
@@ -30,7 +30,7 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T | null
   }
 }
 
-export function useTodos(view: View) {
+export function useTodos(view: string) {
   const [todos, setTodos] = useState<Todo[]>([])
   const [loading, setLoading] = useState(true)
   const [mode, setMode] = useState<'local' | 'postgres'>('local')

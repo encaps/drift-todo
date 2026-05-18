@@ -3,15 +3,30 @@
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTodos } from '@/hooks/useTodos'
-import { CATEGORIES, VIEWS, type Category, type View } from '@/lib/types'
+import { useSections } from '@/hooks/useSections'
+import { CATEGORIES, type Category } from '@/lib/types'
 import TodoItem from './TodoItem'
 import QuickAdd from './QuickAdd'
+import SectionManager from './SectionManager'
 
 export default function TodoApp() {
-  const [activeView, setActiveView] = useState<View>(() => {
+  const { sections, loading: sectionsLoading, addSection, updateSection, deleteSection } = useSections()
+
+  const [activeView, setActiveView] = useState<string>(() => {
     if (typeof window === 'undefined') return 'private'
-    return (localStorage.getItem('drift-view') as View) || 'private'
+    return localStorage.getItem('drift-view') || 'private'
   })
+
+  // If the stored view doesn't exist in sections, fall back to the first section
+  useEffect(() => {
+    if (!sectionsLoading && sections.length > 0) {
+      const exists = sections.some((s) => s.key === activeView)
+      if (!exists) {
+        setActiveView(sections[0].key)
+        localStorage.setItem('drift-view', sections[0].key)
+      }
+    }
+  }, [sections, sectionsLoading, activeView])
 
   const {
     todos,
@@ -28,12 +43,13 @@ export default function TodoApp() {
 
   const [activeTab, setActiveTab] = useState<Category>('daily')
   const [quickAddOpen, setQuickAddOpen] = useState(false)
+  const [sectionManagerOpen, setSectionManagerOpen] = useState(false)
   const [isDark, setIsDark] = useState(true)
   const [showCompleted, setShowCompleted] = useState(false)
   const [notificationBanner, setNotificationBanner] = useState(false)
 
   // Persist active view
-  const switchView = (v: View) => {
+  const switchView = (v: string) => {
     setActiveView(v)
     localStorage.setItem('drift-view', v)
   }
@@ -56,7 +72,6 @@ export default function TodoApp() {
   // Check notification permission
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
-      // Show banner after a short delay
       const t = setTimeout(() => setNotificationBanner(true), 3000)
       return () => clearTimeout(t)
     }
@@ -72,7 +87,6 @@ export default function TodoApp() {
   // Keyboard shortcut: N to open quick add, Cmd+K
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Don't trigger if user is typing in an input
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement
@@ -99,7 +113,6 @@ export default function TodoApp() {
     const permission = await Notification.requestPermission()
     if (permission !== 'granted') return
 
-    // Subscribe to push
     const reg = await navigator.serviceWorker.ready
     const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
     if (!vapidKey) return
@@ -143,7 +156,7 @@ export default function TodoApp() {
   }
 
   // Loading skeleton
-  if (loading) {
+  if (loading || sectionsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <motion.div
@@ -165,29 +178,40 @@ export default function TodoApp() {
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-semibold tracking-tight">drift</h1>
 
-            {/* View switcher */}
+            {/* View switcher — dynamic sections */}
             <div className="flex gap-0.5 p-0.5 bg-surface rounded-lg border border-surface-border">
-              {VIEWS.map((v) => (
+              {sections.map((s) => (
                 <button
-                  key={v.key}
-                  onClick={() => switchView(v.key)}
+                  key={s.key}
+                  onClick={() => switchView(s.key)}
                   className={`
                     relative px-2.5 py-1 rounded-md text-xs font-medium transition-all
-                    ${activeView === v.key
+                    ${activeView === s.key
                       ? 'text-foreground'
                       : 'text-muted hover:text-foreground'}
                   `}
                 >
-                  {activeView === v.key && (
+                  {activeView === s.key && (
                     <motion.div
                       layoutId="activeView"
                       className="absolute inset-0 rounded-md bg-background shadow-sm"
                       transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                     />
                   )}
-                  <span className="relative z-10">{v.icon} {v.label}</span>
+                  <span className="relative z-10">{s.icon} {s.label}</span>
                 </button>
               ))}
+
+              {/* Manage sections button */}
+              <button
+                onClick={() => setSectionManagerOpen(true)}
+                className="relative px-1.5 py-1 rounded-md text-xs text-muted hover:text-foreground transition-all"
+                aria-label="Manage sections"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
             </div>
 
             <span className="text-xs text-muted font-mono">
@@ -342,9 +366,18 @@ export default function TodoApp() {
         onClose={() => setQuickAddOpen(false)}
         onAdd={(text, category) => {
           addTodo(text, category)
-          // Keep modal open for rapid entry
         }}
         defaultCategory={activeTab}
+      />
+
+      {/* Section Manager Modal */}
+      <SectionManager
+        isOpen={sectionManagerOpen}
+        onClose={() => setSectionManagerOpen(false)}
+        sections={sections}
+        onAdd={addSection}
+        onUpdate={updateSection}
+        onDelete={deleteSection}
       />
 
       {/* Notification permission banner */}
