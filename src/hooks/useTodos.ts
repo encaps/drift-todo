@@ -41,6 +41,34 @@ export function useTodos(view: string) {
     let cancelled = false
     setLoading(true)
 
+    const refresh = async () => {
+      const fresh = await apiFetch<Todo[]>(`/api/todos?view=${view}`)
+      if (!cancelled && fresh) setTodos(fresh)
+    }
+
+    const stopPolling = () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current)
+        pollRef.current = null
+      }
+    }
+
+    // Only poll while the tab is visible — a hidden tab polling Neon keeps
+    // the compute awake 24/7 and burns through the CU-hour allowance
+    const startPolling = () => {
+      if (pollRef.current || document.visibilityState !== 'visible') return
+      pollRef.current = setInterval(refresh, POLL_INTERVAL)
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refresh()
+        startPolling()
+      } else {
+        stopPolling()
+      }
+    }
+
     async function init() {
       // Try to load from API first
       const data = await apiFetch<Todo[]>(`/api/todos?view=${view}`)
@@ -49,11 +77,9 @@ export function useTodos(view: string) {
         setTodos(data)
         setLoading(false)
 
-        // Start polling for cross-device sync
-        pollRef.current = setInterval(async () => {
-          const fresh = await apiFetch<Todo[]>(`/api/todos?view=${view}`)
-          if (fresh) setTodos(fresh)
-        }, POLL_INTERVAL)
+        // Poll for cross-device sync, but only while visible
+        startPolling()
+        document.addEventListener('visibilitychange', onVisibilityChange)
       } else if (!cancelled) {
         // Fall back to localStorage
         setMode('local')
@@ -66,7 +92,8 @@ export function useTodos(view: string) {
 
     return () => {
       cancelled = true
-      if (pollRef.current) clearInterval(pollRef.current)
+      stopPolling()
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }, [view])
 
