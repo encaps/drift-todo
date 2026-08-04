@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import { useTodos } from '@/hooks/useTodos'
 import { useSections } from '@/hooks/useSections'
 import { CATEGORIES, type Category } from '@/lib/types'
@@ -38,6 +38,7 @@ export default function TodoApp() {
     deleteTodo,
     moveTodo,
     editTodo,
+    reorderTodos,
     clearCompleted,
   } = useTodos(activeView)
 
@@ -298,6 +299,7 @@ export default function TodoApp() {
               onDelete={deleteTodo}
               onMove={moveTodo}
               onEdit={editTodo}
+              onReorder={reorderTodos}
             />
           ))}
         </div>
@@ -323,6 +325,7 @@ export default function TodoApp() {
                 onDelete={deleteTodo}
                 onMove={moveTodo}
                 onEdit={editTodo}
+                onReorder={reorderTodos}
               />
             </motion.div>
           </AnimatePresence>
@@ -434,6 +437,7 @@ function Column({
   onDelete,
   onMove,
   onEdit,
+  onReorder,
 }: {
   category: Category
   todos: ReturnType<typeof useTodos>['todos']
@@ -445,11 +449,16 @@ function Column({
   onDelete: (id: string) => void
   onMove: (id: string, category: Category) => void
   onEdit: (id: string, text: string) => void
+  onReorder: (orderedIds: string[]) => void
 }) {
   const cat = CATEGORIES.find((c) => c.key === category)!
   const activeTodos = todos
     .filter((t) => t.category === category && !t.completed)
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .sort(
+      (a, b) =>
+        a.position - b.position ||
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
   const completedTodos = todos
     .filter((t) => t.category === category && t.completed)
     .sort((a, b) => new Date(b.completed_at || b.created_at).getTime() - new Date(a.completed_at || a.created_at).getTime())
@@ -465,19 +474,28 @@ function Column({
 
       {/* Todo list */}
       <div className={`space-y-2 rounded-2xl ${glowClass}`}>
-        <AnimatePresence mode="popLayout">
-          {activeTodos.map((todo) => (
-            <TodoItem
-              key={todo.id}
-              todo={todo}
-              onComplete={onComplete}
-              onUncomplete={onUncomplete}
-              onDelete={onDelete}
-              onMove={onMove}
-              onEdit={onEdit}
-            />
-          ))}
-        </AnimatePresence>
+        <Reorder.Group
+          as="div"
+          axis="y"
+          values={activeTodos}
+          onReorder={(newOrder) => onReorder(newOrder.map((t) => t.id))}
+          className="space-y-2"
+        >
+          <AnimatePresence mode="popLayout">
+            {activeTodos.map((todo) => (
+              <TodoItem
+                key={todo.id}
+                todo={todo}
+                reorderable
+                onComplete={onComplete}
+                onUncomplete={onUncomplete}
+                onDelete={onDelete}
+                onMove={onMove}
+                onEdit={onEdit}
+              />
+            ))}
+          </AnimatePresence>
+        </Reorder.Group>
 
         {activeTodos.length === 0 && (
           <motion.div

@@ -42,6 +42,13 @@ export async function PATCH(
     return Response.json(rows[0])
   }
 
+  if ('position' in body) {
+    const rows = await sql`
+      UPDATE todos SET position = ${body.position} WHERE id = ${id} RETURNING *
+    `
+    return Response.json(rows[0])
+  }
+
   return Response.json({ error: 'Unsupported update' }, { status: 400 })
 }
 

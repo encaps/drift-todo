@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { motion, AnimatePresence, type PanInfo } from 'framer-motion'
+import { motion, AnimatePresence, Reorder, useDragControls, type PanInfo } from 'framer-motion'
 import type { Todo, Category } from '@/lib/types'
 import { CATEGORIES } from '@/lib/types'
 
 interface TodoItemProps {
   todo: Todo
+  reorderable?: boolean
   onComplete: (id: string) => void
   onUncomplete: (id: string) => void
   onDelete: (id: string) => void
@@ -16,6 +17,7 @@ interface TodoItemProps {
 
 export default function TodoItem({
   todo,
+  reorderable = false,
   onComplete,
   onUncomplete,
   onDelete,
@@ -27,6 +29,7 @@ export default function TodoItem({
   const [showActions, setShowActions] = useState(false)
   const [swipeX, setSwipeX] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
+  const dragControls = useDragControls()
 
   const categoryMeta = CATEGORIES.find((c) => c.key === todo.category)!
   const otherCategories = CATEGORIES.filter((c) => c.key !== todo.category)
@@ -60,15 +63,8 @@ export default function TodoItem({
     someday: 'border-l-violet-400',
   }
 
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 20, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9, x: swipeX > 0 ? 100 : swipeX < 0 ? -100 : 0 }}
-      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-      className="relative group"
-    >
+  const content = (
+    <>
       {/* Swipe background indicators */}
       <div className="absolute inset-0 rounded-xl flex items-center justify-between px-4 pointer-events-none">
         <div
@@ -180,6 +176,29 @@ export default function TodoItem({
               <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
             </svg>
           </button>
+
+          {/* Drag handle for reordering */}
+          {reorderable && (
+            <button
+              onPointerDown={(e) => {
+                e.stopPropagation()
+                e.preventDefault()
+                dragControls.start(e)
+              }}
+              className="flex-shrink-0 p-1 -mr-1 rounded-lg cursor-grab active:cursor-grabbing
+                         touch-none text-muted/40 hover:text-foreground transition-colors"
+              aria-label="Drag to reorder"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <circle cx="7" cy="5" r="1.5" />
+                <circle cx="13" cy="5" r="1.5" />
+                <circle cx="7" cy="10" r="1.5" />
+                <circle cx="13" cy="10" r="1.5" />
+                <circle cx="7" cy="15" r="1.5" />
+                <circle cx="13" cy="15" r="1.5" />
+              </svg>
+            </button>
+          )}
         </div>
 
         {/* Actions dropdown */}
@@ -228,6 +247,35 @@ export default function TodoItem({
           )}
         </AnimatePresence>
       </motion.div>
+    </>
+  )
+
+  const wrapperProps = {
+    initial: { opacity: 0, y: 20, scale: 0.95 },
+    animate: { opacity: 1, y: 0, scale: 1 },
+    exit: { opacity: 0, scale: 0.9, x: swipeX > 0 ? 100 : swipeX < 0 ? -100 : 0 },
+    transition: { type: 'spring' as const, stiffness: 500, damping: 30 },
+    className: 'relative group',
+  }
+
+  if (reorderable) {
+    return (
+      <Reorder.Item
+        as="div"
+        value={todo}
+        dragListener={false}
+        dragControls={dragControls}
+        whileDrag={{ scale: 1.02, zIndex: 10 }}
+        {...wrapperProps}
+      >
+        {content}
+      </Reorder.Item>
+    )
+  }
+
+  return (
+    <motion.div layout {...wrapperProps}>
+      {content}
     </motion.div>
   )
 }

@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   const rows = await sql`
     SELECT * FROM todos
     WHERE view = ${view}
-    ORDER BY completed ASC, created_at DESC
+    ORDER BY completed ASC, position ASC, created_at DESC
   `
   return Response.json(rows)
 }

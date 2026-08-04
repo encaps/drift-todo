@@ -35,6 +35,9 @@ export function useTodos(view: string) {
   const [loading, setLoading] = useState(true)
   const [mode, setMode] = useState<'local' | 'postgres'>('local')
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const reorderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingPositionsRef = useRef<Map<string, number>>(new Map())
+  const reorderPendingRef = useRef(false)
 
   // Determine mode and load initial data — re-run when view changes
   useEffect(() => {
@@ -42,8 +45,11 @@ export function useTodos(view: string) {
     setLoading(true)
 
     const refresh = async () => {
+      // Skip while a reorder is waiting to be persisted, otherwise the poll
+      // would snap items back to their old positions
+      if (reorderPendingRef.current) return
       const fresh = await apiFetch<Todo[]>(`/api/todos?view=${view}`)
-      if (!cancelled && fresh) setTodos(fresh)
+      if (!cancelled && fresh && !reorderPendingRef.current) setTodos(fresh)
     }
 
     const stopPolling = () => {
@@ -106,9 +112,10 @@ export function useTodos(view: string) {
 
   const addTodo = useCallback(
     async (text: string, category: Category) => {
-      const maxPos = todos
+      // Lists sort by position ascending — new todos go on top
+      const minPos = todos
         .filter((t) => t.category === category && !t.completed)
-        .reduce((max, t) => Math.max(max, t.position), -1)
+        .reduce((min, t) => Math.min(min, t.position), 0)
 
       const todo: Todo = {
         id: crypto.randomUUID(),
@@ -116,7 +123,7 @@ export function useTodos(view: string) {
         category,
         view,
         completed: false,
-        position: maxPos + 1,
+        position: minPos - 1,
         created_at: new Date().toISOString(),
         completed_at: null,
       }
@@ -212,6 +219,41 @@ export function useTodos(view: string) {
     [mode]
   )
 
+  const reorderTodos = useCallback(
+    (orderedIds: string[]) => {
+      const positions = new Map(orderedIds.map((id, index) => [id, index]))
+
+      setTodos((prev) =>
+        prev.map((t) => {
+          const pos = positions.get(t.id)
+          return pos !== undefined && pos !== t.position ? { ...t, position: pos } : t
+        })
+      )
+
+      if (mode !== 'postgres') return
+
+      // Reorder fires on every item swap while dragging — debounce the persist
+      reorderPendingRef.current = true
+      positions.forEach((position, id) => pendingPositionsRef.current.set(id, position))
+
+      if (reorderTimerRef.current) clearTimeout(reorderTimerRef.current)
+      reorderTimerRef.current = setTimeout(async () => {
+        const updates = Array.from(pendingPositionsRef.current, ([id, position]) => ({
+          id,
+          position,
+        }))
+        pendingPositionsRef.current.clear()
+        await apiFetch('/api/todos/reorder', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ updates }),
+        })
+        reorderPendingRef.current = false
+      }, 600)
+    },
+    [mode]
+  )
+
   const clearCompleted = useCallback(async () => {
     setTodos((prev) => prev.filter((t) => !t.completed))
 
@@ -230,6 +272,7 @@ export function useTodos(view: string) {
     deleteTodo,
     moveTodo,
     editTodo,
+    reorderTodos,
     clearCompleted,
   }
 }
