@@ -180,7 +180,10 @@ export default function TodoItem({
           {/* Drag handle for reordering */}
           {reorderable && (
             <button
-              onPointerDown={(e) => {
+              onPointerDownCapture={(e) => {
+                // Stop the event in the capture phase, before the card's own
+                // drag="x" swipe listener sees it — otherwise the swipe gesture
+                // claims the pointer and blocks the reorder drag entirely
                 e.stopPropagation()
                 e.preventDefault()
                 dragControls.start(e)
