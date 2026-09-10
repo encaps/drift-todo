@@ -221,6 +221,22 @@ export default function TodoApp() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Add todo — desktop only; mobile uses the FAB */}
+            <button
+              onClick={() => setQuickAddOpen(true)}
+              className="hidden lg:flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-xl
+                         bg-foreground text-background text-xs font-medium
+                         hover:opacity-90 transition-opacity"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Add
+              <kbd className="px-1 py-0.5 rounded bg-background/20 font-mono text-[10px] text-background/70">
+                N
+              </kbd>
+            </button>
+
             {/* Clear completed */}
             {completedCount > 0 && (
               <button
@@ -344,13 +360,13 @@ export default function TodoApp() {
         )}
       </main>
 
-      {/* FAB - Quick Add */}
+      {/* FAB - Quick Add (mobile; desktop has the header button) */}
       <motion.button
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setQuickAddOpen(true)}
         className={`
-          fixed bottom-6 right-6 z-30 w-14 h-14 rounded-2xl
+          lg:hidden fixed bottom-6 right-6 z-30 w-14 h-14 rounded-2xl
           bg-foreground text-background shadow-xl
           flex items-center justify-center
           safe-bottom
@@ -417,10 +433,6 @@ export default function TodoApp() {
         )}
       </AnimatePresence>
 
-      {/* Keyboard hint (desktop only) */}
-      <div className="hidden lg:block fixed bottom-6 left-6 text-[10px] text-muted/50">
-        Press <kbd className="px-1 py-0.5 rounded bg-surface-border/30 font-mono text-muted/60">N</kbd> to add
-      </div>
     </div>
   )
 }
