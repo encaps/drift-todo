@@ -1,0 +1,42 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Drift",
+  "version": "0.1.0",
+  "identifier": "tools.faraday.drift",
+  "build": {},
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Drift",
+        "url": "https://todo-app-xi-green.vercel.app/",
+        "width": 1100,
+        "height": 780,
+        "minWidth": 420,
+        "minHeight": 480,
+        "center": true,
+        "resizable": true,
+        "backgroundColor": "#09090b",
+        "titleBarStyle": "Visible"
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    }
+  }
+}
