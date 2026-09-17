@@ -5,6 +5,7 @@ import type { Todo, Category } from '@/lib/types'
 
 const STORAGE_KEY = 'drift-todos'
 const POLL_INTERVAL = 5000 // 5s polling for cross-device sync
+const UNDO_WINDOW = 5000 // how long a swipe-delete can be undone before it hits the DB
 
 function loadLocal(): Todo[] {
   if (typeof window === 'undefined') return []
@@ -38,6 +39,10 @@ export function useTodos(view: string) {
   const reorderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingPositionsRef = useRef<Map<string, number>>(new Map())
   const reorderPendingRef = useRef(false)
+  // A delete is hidden locally first and only sent to the API after
+  // UNDO_WINDOW — one accidental swipe used to be an unrecoverable hard delete
+  const [pendingDelete, setPendingDelete] = useState<Todo | null>(null)
+  const pendingDeleteRef = useRef<{ todo: Todo; timer: ReturnType<typeof setTimeout> } | null>(null)
 
   // Determine mode and load initial data — re-run when view changes
   useEffect(() => {
@@ -49,7 +54,12 @@ export function useTodos(view: string) {
       // would snap items back to their old positions
       if (reorderPendingRef.current) return
       const fresh = await apiFetch<Todo[]>(`/api/todos?view=${view}`)
-      if (!cancelled && fresh && !reorderPendingRef.current) setTodos(fresh)
+      if (!cancelled && fresh && !reorderPendingRef.current) {
+        // The server still has a todo whose delete is waiting on the undo
+        // window — keep it hidden so it doesn't flicker back
+        const hidden = pendingDeleteRef.current?.todo.id
+        setTodos(hidden ? fresh.filter((t) => t.id !== hidden) : fresh)
+      }
     }
 
     const stopPolling = () => {
@@ -178,16 +188,54 @@ export function useTodos(view: string) {
     [mode]
   )
 
+  // Send the pending delete to the API now. keepalive lets the request
+  // survive a tab close or navigation when called from pagehide.
+  const commitPendingDelete = useCallback(() => {
+    const pending = pendingDeleteRef.current
+    if (!pending) return
+    clearTimeout(pending.timer)
+    pendingDeleteRef.current = null
+    setPendingDelete(null)
+    if (mode === 'postgres') {
+      fetch(`/api/todos/${pending.todo.id}`, { method: 'DELETE', keepalive: true }).catch(() => {})
+    }
+  }, [mode])
+
   const deleteTodo = useCallback(
-    async (id: string) => {
+    (id: string) => {
+      const todo = todos.find((t) => t.id === id)
+      if (!todo) return
+
+      // Only one undo at a time — a second delete commits the first
+      commitPendingDelete()
+
       setTodos((prev) => prev.filter((t) => t.id !== id))
 
-      if (mode === 'postgres') {
-        await apiFetch(`/api/todos/${id}`, { method: 'DELETE' })
-      }
+      const timer = setTimeout(commitPendingDelete, UNDO_WINDOW)
+      pendingDeleteRef.current = { todo, timer }
+      setPendingDelete(todo)
     },
-    [mode]
+    [todos, commitPendingDelete]
   )
+
+  const undoDelete = useCallback(() => {
+    const pending = pendingDeleteRef.current
+    if (!pending) return
+    clearTimeout(pending.timer)
+    pendingDeleteRef.current = null
+    setPendingDelete(null)
+    // The user may have switched section while the toast was up; the todo
+    // then belongs to a list we're not showing and the next poll covers it
+    if (pending.todo.view === view) {
+      setTodos((prev) => (prev.some((t) => t.id === pending.todo.id) ? prev : [...prev, pending.todo]))
+    }
+  }, [view])
+
+  // Don't lose a pending delete when the tab closes or the page reloads
+  useEffect(() => {
+    window.addEventListener('pagehide', commitPendingDelete)
+    return () => window.removeEventListener('pagehide', commitPendingDelete)
+  }, [commitPendingDelete])
 
   const moveTodo = useCallback(
     async (id: string, category: Category) => {
@@ -270,6 +318,8 @@ export function useTodos(view: string) {
     completeTodo,
     uncompleteTodo,
     deleteTodo,
+    pendingDelete,
+    undoDelete,
     moveTodo,
     editTodo,
     reorderTodos,

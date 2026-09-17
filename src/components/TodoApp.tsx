@@ -36,6 +36,8 @@ export default function TodoApp() {
     completeTodo,
     uncompleteTodo,
     deleteTodo,
+    pendingDelete,
+    undoDelete,
     moveTodo,
     editTodo,
     reorderTodos,
@@ -398,6 +400,31 @@ export default function TodoApp() {
         onUpdate={updateSection}
         onDelete={deleteSection}
       />
+
+      {/* Undo toast — the todo is only hidden until this disappears */}
+      <AnimatePresence>
+        {pendingDelete && (
+          <motion.div
+            key={pendingDelete.id}
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-24 lg:bottom-6 left-4 right-4 z-40 mx-auto max-w-md"
+          >
+            <div className="bg-surface border border-surface-border rounded-2xl px-4 py-3 shadow-xl flex items-center gap-3">
+              <p className="flex-1 text-sm text-foreground truncate">
+                Deleted <span className="text-muted">&ldquo;{pendingDelete.text}&rdquo;</span>
+              </p>
+              <button
+                onClick={undoDelete}
+                className="text-xs font-medium bg-foreground text-background px-3 py-1.5 rounded-lg flex-shrink-0"
+              >
+                Undo
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Notification permission banner */}
       <AnimatePresence>
