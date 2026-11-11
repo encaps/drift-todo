@@ -122,11 +122,41 @@ export function useSections() {
     [sections, mode]
   )
 
+  // Swap a section with its neighbour and renumber all positions 0..n-1, so
+  // gaps or duplicates left by earlier adds and deletes can't break the order
+  const moveSection = useCallback(
+    async (id: string, direction: -1 | 1) => {
+      const ordered = [...sections].sort((a, b) => a.position - b.position)
+      const from = ordered.findIndex((s) => s.id === id)
+      const to = from + direction
+      if (from === -1 || to < 0 || to >= ordered.length) return
+      ;[ordered[from], ordered[to]] = [ordered[to], ordered[from]]
+
+      const changed = ordered.filter((s, index) => s.position !== index)
+      const renumbered = ordered.map((s, index) => ({ ...s, position: index }))
+      setSections(renumbered)
+
+      if (mode === 'postgres') {
+        await Promise.all(
+          changed.map((s) =>
+            apiFetch(`/api/sections/${s.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ position: renumbered.findIndex((r) => r.id === s.id) }),
+            })
+          )
+        )
+      }
+    },
+    [sections, mode]
+  )
+
   return {
     sections,
     loading,
     addSection,
     updateSection,
     deleteSection,
+    moveSection,
   }
 }

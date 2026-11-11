@@ -13,6 +13,7 @@ interface SectionManagerProps {
   onAdd: (label: string, icon: string) => Promise<Section>
   onUpdate: (id: string, updates: Partial<Pick<Section, 'label' | 'icon'>>) => Promise<void>
   onDelete: (id: string) => Promise<void>
+  onMove: (id: string, direction: -1 | 1) => Promise<void>
 }
 
 export default function SectionManager({
@@ -22,6 +23,7 @@ export default function SectionManager({
   onAdd,
   onUpdate,
   onDelete,
+  onMove,
 }: SectionManagerProps) {
   const [newLabel, setNewLabel] = useState('')
   const [newIcon, setNewIcon] = useState('📋')
@@ -95,7 +97,7 @@ export default function SectionManager({
 
               {/* Section list */}
               <div className="px-5 py-3 space-y-2 max-h-[40vh] overflow-y-auto">
-                {sections.map((section) => (
+                {sections.map((section, index) => (
                   <div key={section.id}>
                     {editingId === section.id ? (
                       /* Edit mode */
@@ -151,9 +153,32 @@ export default function SectionManager({
                     ) : (
                       /* Display mode */
                       <div className="flex items-center gap-2 p-2 rounded-xl hover:bg-background/50 group transition-colors">
+                        {/* Always visible: hover-only controls are unreachable on touch screens */}
+                        <div className="flex flex-col -my-1">
+                          <button
+                            onClick={() => onMove(section.id, -1)}
+                            disabled={index === 0}
+                            aria-label={`Move ${section.label} up`}
+                            className="text-muted hover:text-foreground disabled:opacity-20 disabled:cursor-default px-1.5 py-0.5 transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => onMove(section.id, 1)}
+                            disabled={index === sections.length - 1}
+                            aria-label={`Move ${section.label} down`}
+                            className="text-muted hover:text-foreground disabled:opacity-20 disabled:cursor-default px-1.5 py-0.5 transition-colors"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                        </div>
                         <span className="text-lg w-8 text-center">{section.icon}</span>
                         <span className="flex-1 text-sm text-foreground">{section.label}</span>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity">
                           <button
                             onClick={() => startEdit(section)}
                             className="text-xs text-muted hover:text-foreground px-1.5 py-0.5 rounded transition-colors"

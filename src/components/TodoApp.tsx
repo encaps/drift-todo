@@ -10,7 +10,7 @@ import QuickAdd from './QuickAdd'
 import SectionManager from './SectionManager'
 
 export default function TodoApp() {
-  const { sections, loading: sectionsLoading, addSection, updateSection, deleteSection } = useSections()
+  const { sections, loading: sectionsLoading, addSection, updateSection, deleteSection, moveSection } = useSections()
 
   const [activeView, setActiveView] = useState<string>(() => {
     if (typeof window === 'undefined') return 'private'
@@ -399,6 +399,7 @@ export default function TodoApp() {
         onAdd={addSection}
         onUpdate={updateSection}
         onDelete={deleteSection}
+        onMove={moveSection}
       />
 
       {/* Undo toast — the todo is only hidden until this disappears */}
