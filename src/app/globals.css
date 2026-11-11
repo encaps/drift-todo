@@ -60,6 +60,15 @@ body {
   border-radius: 2px;
 }
 
+/* Horizontal strips that scroll by swipe, without a visible bar */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Checkbox animation */
 @keyframes checkmark {
   0% { stroke-dashoffset: 24; }

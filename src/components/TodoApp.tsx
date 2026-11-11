@@ -57,6 +57,14 @@ export default function TodoApp() {
     localStorage.setItem('drift-view', v)
   }
 
+  // The tab strip scrolls on phones; keep the active tab in view, e.g. when
+  // the app opens on a section far to the right
+  useEffect(() => {
+    document
+      .querySelector(`[data-view="${CSS.escape(activeView)}"]`)
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [activeView, sections])
+
   // Theme init
   useEffect(() => {
     const stored = localStorage.getItem('drift-theme')
@@ -177,18 +185,21 @@ export default function TodoApp() {
     <div className="min-h-screen flex flex-col safe-top">
       {/* Header */}
       <header className="sticky top-0 z-30 bg-background/80 glass border-b border-surface-border">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-semibold tracking-tight">drift</h1>
+        {/* On phones the section tabs get their own full-width row that scrolls
+            sideways inside itself, so the page never scrolls horizontally */}
+        <div className="max-w-5xl mx-auto px-4 py-3 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <h1 className="text-xl font-semibold tracking-tight">drift</h1>
 
-            {/* View switcher — dynamic sections */}
-            <div className="flex gap-0.5 p-0.5 bg-surface rounded-lg border border-surface-border">
+          {/* View switcher — dynamic sections */}
+          <div className="order-last w-full sm:order-none sm:w-auto min-w-0 flex p-0.5 bg-surface rounded-lg border border-surface-border">
+            <div className="flex gap-0.5 min-w-0 flex-1 overflow-x-auto no-scrollbar">
               {sections.map((s) => (
                 <button
                   key={s.key}
+                  data-view={s.key}
                   onClick={() => switchView(s.key)}
                   className={`
-                    relative px-2.5 py-1 rounded-md text-xs font-medium transition-all
+                    relative shrink-0 whitespace-nowrap px-2.5 py-1 rounded-md text-xs font-medium transition-all
                     ${activeView === s.key
                       ? 'text-foreground'
                       : 'text-muted hover:text-foreground'}
@@ -204,25 +215,25 @@ export default function TodoApp() {
                   <span className="relative z-10">{s.icon} {s.label}</span>
                 </button>
               ))}
-
-              {/* Manage sections button */}
-              <button
-                onClick={() => setSectionManagerOpen(true)}
-                className="relative px-1.5 py-1 rounded-md text-xs text-muted hover:text-foreground transition-all"
-                aria-label="Manage sections"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-              </button>
             </div>
 
-            <span className="text-xs text-muted font-mono">
-              {mode === 'postgres' ? '● synced' : '○ local'}
-            </span>
+            {/* Manage sections button — outside the scroll area so it stays reachable */}
+            <button
+              onClick={() => setSectionManagerOpen(true)}
+              className="relative shrink-0 px-1.5 py-1 rounded-md text-xs text-muted hover:text-foreground transition-all"
+              aria-label="Manage sections"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <span className="text-xs text-muted font-mono">
+            {mode === 'postgres' ? '● synced' : '○ local'}
+          </span>
+
+          <div className="ml-auto flex items-center gap-2">
             {/* Add todo — desktop only; mobile uses the FAB */}
             <button
               onClick={() => setQuickAddOpen(true)}
