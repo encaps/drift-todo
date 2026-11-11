@@ -7,12 +7,17 @@ import type { Category } from '@/lib/types'
 //   "Today call the plumber"       -> Today, Private
 //   "Groceries oat milk"           -> Today, Groceries
 //   "Work someday refactor sync"   -> Someday, Work
+//   "Binnenkort paspoort verlengen" -> Soon, Private
 
+// English and Dutch, so dictation works in either language
 const LANE_WORDS: Record<string, Category> = {
   today: 'daily',
+  vandaag: 'daily',
   soon: 'soon',
+  binnenkort: 'soon',
   later: 'someday',
   someday: 'someday',
+  ooit: 'someday',
 }
 const DEFAULT_LANE: Category = 'daily'
 const DEFAULT_VIEW = 'private'
