@@ -4,15 +4,19 @@ import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import type { Category } from '@/lib/types'
 import { CATEGORIES } from '@/lib/types'
+import { normalizeUrl, firstUrlIn } from '@/lib/url'
 
 interface QuickAddProps {
   isOpen: boolean
   onClose: () => void
   onAdd: (text: string, category: Category) => void
   defaultCategory: Category
+  // On a links section the input takes a URL and there is no lane picker
+  linksMode?: boolean
+  onAddLink?: (url: string) => void
 }
 
-export default function QuickAdd({ isOpen, onClose, onAdd, defaultCategory }: QuickAddProps) {
+export default function QuickAdd({ isOpen, onClose, onAdd, defaultCategory, linksMode = false, onAddLink }: QuickAddProps) {
   const [text, setText] = useState('')
   const [category, setCategory] = useState<Category>(defaultCategory)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -27,9 +31,17 @@ export default function QuickAdd({ isOpen, onClose, onAdd, defaultCategory }: Qu
     }
   }, [isOpen, defaultCategory])
 
+  const linkUrl = linksMode ? (normalizeUrl(text) ?? firstUrlIn(text)) : null
+
   const handleSubmit = () => {
     const trimmed = text.trim()
     if (!trimmed) return
+    if (linksMode) {
+      if (!linkUrl) return
+      onAddLink?.(linkUrl)
+      onClose()
+      return
+    }
     onAdd(trimmed, category)
     setText('')
     inputRef.current?.focus()
@@ -77,13 +89,14 @@ export default function QuickAdd({ isOpen, onClose, onAdd, defaultCategory }: Qu
                     }
                     if (e.key === 'Escape') onClose()
                     // Tab to cycle categories
-                    if (e.key === 'Tab') {
+                    if (e.key === 'Tab' && !linksMode) {
                       e.preventDefault()
                       const idx = CATEGORIES.findIndex((c) => c.key === category)
                       setCategory(CATEGORIES[(idx + 1) % CATEGORIES.length].key)
                     }
                   }}
-                  placeholder="What needs to be done?"
+                  placeholder={linksMode ? 'Paste a link…' : 'What needs to be done?'}
+                  inputMode={linksMode ? 'url' : undefined}
                   className="w-full px-5 py-4 bg-transparent text-foreground text-lg
                              placeholder:text-muted outline-none"
                 />
@@ -92,7 +105,12 @@ export default function QuickAdd({ isOpen, onClose, onAdd, defaultCategory }: Qu
               {/* Category picker + submit */}
               <div className="flex items-center justify-between px-4 py-3">
                 <div className="flex gap-2">
-                  {CATEGORIES.map((cat) => (
+                  {linksMode && (
+                    <span className="text-xs text-muted py-1.5">
+                      {text.trim() && !linkUrl ? 'Not a link yet' : '🔖 Saves to Read later'}
+                    </span>
+                  )}
+                  {!linksMode && CATEGORIES.map((cat) => (
                     <button
                       key={cat.key}
                       onClick={() => setCategory(cat.key)}
@@ -112,7 +130,7 @@ export default function QuickAdd({ isOpen, onClose, onAdd, defaultCategory }: Qu
 
                 <button
                   onClick={handleSubmit}
-                  disabled={!text.trim()}
+                  disabled={linksMode ? !linkUrl : !text.trim()}
                   className="px-4 py-1.5 rounded-lg bg-foreground text-background text-sm font-medium
                              disabled:opacity-30 disabled:cursor-not-allowed
                              hover:opacity-90 active:scale-95 transition-all"
@@ -126,9 +144,11 @@ export default function QuickAdd({ isOpen, onClose, onAdd, defaultCategory }: Qu
                 <span>
                   <kbd className="px-1.5 py-0.5 rounded bg-surface-border/50 font-mono">Enter</kbd> to add
                 </span>
-                <span>
-                  <kbd className="px-1.5 py-0.5 rounded bg-surface-border/50 font-mono">Tab</kbd> switch category
-                </span>
+                {!linksMode && (
+                  <span>
+                    <kbd className="px-1.5 py-0.5 rounded bg-surface-border/50 font-mono">Tab</kbd> switch category
+                  </span>
+                )}
                 <span>
                   <kbd className="px-1.5 py-0.5 rounded bg-surface-border/50 font-mono">Esc</kbd> close
                 </span>

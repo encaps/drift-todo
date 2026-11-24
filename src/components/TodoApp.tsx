@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence, Reorder } from 'framer-motion'
 import { useTodos } from '@/hooks/useTodos'
 import { useSections } from '@/hooks/useSections'
-import { CATEGORIES, type Category } from '@/lib/types'
+import { CATEGORIES, type Category, type Todo } from '@/lib/types'
 import TodoItem from './TodoItem'
+import LinkItem from './LinkItem'
+import SearchOverlay from './SearchOverlay'
 import QuickAdd from './QuickAdd'
 import SectionManager from './SectionManager'
 
@@ -33,6 +35,7 @@ export default function TodoApp() {
     loading,
     mode,
     addTodo,
+    addLink,
     completeTodo,
     uncompleteTodo,
     deleteTodo,
@@ -47,6 +50,8 @@ export default function TodoApp() {
   const [activeTab, setActiveTab] = useState<Category>('daily')
   const [quickAddOpen, setQuickAddOpen] = useState(false)
   const [sectionManagerOpen, setSectionManagerOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const isLinks = sections.find((s) => s.key === activeView)?.kind === 'links'
   const [isDark, setIsDark] = useState(true)
   const [showCompleted, setShowCompleted] = useState(false)
   const [notificationBanner, setNotificationBanner] = useState(false)
@@ -104,6 +109,10 @@ export default function TodoApp() {
       )
         return
 
+      if (e.key === '/') {
+        e.preventDefault()
+        setSearchOpen(true)
+      }
       if (e.key === 'n' || e.key === 'N') {
         e.preventDefault()
         setQuickAddOpen(true)
@@ -234,6 +243,18 @@ export default function TodoApp() {
           </span>
 
           <div className="ml-auto flex items-center gap-2">
+            {/* Search across all sections */}
+            <button
+              onClick={() => setSearchOpen(true)}
+              className="p-2 rounded-xl hover:bg-surface transition-colors text-muted hover:text-foreground"
+              aria-label="Search"
+              title="Search (/)"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z" />
+              </svg>
+            </button>
+
             {/* Add todo — desktop only; mobile uses the FAB */}
             <button
               onClick={() => setQuickAddOpen(true)}
@@ -250,8 +271,8 @@ export default function TodoApp() {
               </kbd>
             </button>
 
-            {/* Clear completed */}
-            {completedCount > 0 && (
+            {/* Clear completed — not on a links section, where read links are the archive */}
+            {completedCount > 0 && !isLinks && (
               <button
                 onClick={clearCompleted}
                 className="text-xs text-muted hover:text-foreground px-2 py-1 rounded-lg
@@ -281,7 +302,7 @@ export default function TodoApp() {
         </div>
 
         {/* Mobile tab navigation */}
-        <div className="lg:hidden px-4 pb-2">
+        <div className={`lg:hidden px-4 pb-2 ${isLinks ? 'hidden' : ''}`}>
           <div className="flex gap-1 p-1 bg-surface rounded-xl border border-surface-border">
             {CATEGORIES.map((cat) => (
               <button
@@ -313,8 +334,19 @@ export default function TodoApp() {
 
       {/* Main content */}
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 py-6">
+        {isLinks && (
+          <LinkList
+            links={todos}
+            showRead={showCompleted}
+            onRead={completeTodo}
+            onUnread={uncompleteTodo}
+            onDelete={deleteTodo}
+            onEdit={editTodo}
+          />
+        )}
+
         {/* Desktop: three columns */}
-        <div className="hidden lg:grid lg:grid-cols-3 gap-6">
+        <div className={`hidden ${isLinks ? '' : 'lg:grid'} lg:grid-cols-3 gap-6`}>
           {CATEGORIES.map((cat) => (
             <Column
               key={cat.key}
@@ -334,7 +366,7 @@ export default function TodoApp() {
         </div>
 
         {/* Mobile: single column for active tab */}
-        <div className="lg:hidden">
+        <div className={`lg:hidden ${isLinks ? 'hidden' : ''}`}>
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -367,7 +399,7 @@ export default function TodoApp() {
               onClick={() => setShowCompleted(!showCompleted)}
               className="text-xs text-muted hover:text-foreground transition-colors"
             >
-              {showCompleted ? 'Hide' : 'Show'} {completedCount} completed
+              {showCompleted ? 'Hide' : 'Show'} {completedCount} {isLinks ? 'read' : 'completed'}
             </button>
           </div>
         )}
@@ -385,7 +417,7 @@ export default function TodoApp() {
           safe-bottom
           hover:shadow-2xl transition-shadow
         `}
-        aria-label="Add todo"
+        aria-label={isLinks ? 'Add link' : 'Add todo'}
       >
         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -400,6 +432,15 @@ export default function TodoApp() {
           addTodo(text, category)
         }}
         defaultCategory={activeTab}
+        linksMode={isLinks}
+        onAddLink={addLink}
+      />
+
+      <SearchOverlay
+        isOpen={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        sections={sections}
+        onOpenSection={switchView}
       />
 
       {/* Section Manager Modal */}
@@ -472,6 +513,98 @@ export default function TodoApp() {
         )}
       </AnimatePresence>
 
+    </div>
+  )
+}
+
+// Read later: one flat list of saved links, newest on top
+function LinkList({
+  links,
+  showRead,
+  onRead,
+  onUnread,
+  onDelete,
+  onEdit,
+}: {
+  links: Todo[]
+  showRead: boolean
+  onRead: (id: string) => void
+  onUnread: (id: string) => void
+  onDelete: (id: string) => void
+  onEdit: (id: string, text: string) => void
+}) {
+  const unread = links
+    .filter((l) => !l.completed)
+    .sort(
+      (a, b) =>
+        a.position - b.position || new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+  const read = links
+    .filter((l) => l.completed)
+    .sort(
+      (a, b) =>
+        new Date(b.completed_at || b.created_at).getTime() - new Date(a.completed_at || a.created_at).getTime()
+    )
+  const item = (link: Todo) => (
+    <LinkItem
+      key={link.id}
+      link={link}
+      onRead={onRead}
+      onUnread={onUnread}
+      onDelete={onDelete}
+      onEdit={onEdit}
+    />
+  )
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <div className="flex items-center gap-2 mb-4">
+        <span className="text-lg">🔖</span>
+        <h2 className="font-semibold text-emerald-400">Read later</h2>
+        <span className="text-xs text-muted font-mono">{unread.length}</span>
+      </div>
+
+      <div className="space-y-2">
+        <AnimatePresence mode="popLayout">{unread.map(item)}</AnimatePresence>
+      </div>
+
+      {unread.length === 0 && <EmptyLinks />}
+
+      {showRead && read.length > 0 && (
+        <div className="mt-6 pt-4 border-t border-surface-border/50 space-y-2">
+          <p className="text-xs text-muted mb-2">Read</p>
+          <AnimatePresence mode="popLayout">{read.map(item)}</AnimatePresence>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Empty state, with the desktop bookmarklet to drag to the bookmarks bar
+function EmptyLinks() {
+  const bookmarkletRef = useRef<HTMLAnchorElement>(null)
+
+  // React refuses javascript: URLs in href, so set it on the DOM node directly
+  useEffect(() => {
+    const code =
+      `javascript:(()=>{window.open('${window.location.origin}/save?url='+encodeURIComponent(location.href)` +
+      `+'&title='+encodeURIComponent(document.title),'drift-save','width=380,height=240')})()`
+    bookmarkletRef.current?.setAttribute('href', code)
+  }, [])
+
+  return (
+    <div className="py-12 text-center space-y-3">
+      <p className="text-muted text-sm">Nothing to read. Paste a link with + or share one from your phone.</p>
+      <p className="hidden lg:block text-xs text-muted">
+        Drag this to your bookmarks bar to save any page:{' '}
+        <a
+          ref={bookmarkletRef}
+          onClick={(e) => e.preventDefault()}
+          className="inline-block ml-1 px-2 py-1 rounded-lg border border-surface-border bg-surface text-foreground font-medium cursor-grab"
+        >
+          🔖 Save to drift
+        </a>
+      </p>
     </div>
   )
 }

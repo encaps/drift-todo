@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import type { Section } from '@/lib/types'
+import type { Section, SectionKind } from '@/lib/types'
 
 const ICON_OPTIONS = ['📋', '💼', '🏠', '🛒', '🎯', '💡', '📚', '🏋️', '🎨', '🌱', '🔧', '❤️', '🎵', '✈️', '🍕', '💰']
 
@@ -10,7 +10,7 @@ interface SectionManagerProps {
   isOpen: boolean
   onClose: () => void
   sections: Section[]
-  onAdd: (label: string, icon: string) => Promise<Section>
+  onAdd: (label: string, icon: string, kind?: SectionKind) => Promise<Section>
   onUpdate: (id: string, updates: Partial<Pick<Section, 'label' | 'icon'>>) => Promise<void>
   onDelete: (id: string) => Promise<void>
   onMove: (id: string, direction: -1 | 1) => Promise<void>
@@ -27,6 +27,7 @@ export default function SectionManager({
 }: SectionManagerProps) {
   const [newLabel, setNewLabel] = useState('')
   const [newIcon, setNewIcon] = useState('📋')
+  const [newIsLinks, setNewIsLinks] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editLabel, setEditLabel] = useState('')
   const [editIcon, setEditIcon] = useState('')
@@ -36,9 +37,10 @@ export default function SectionManager({
   const handleAdd = async () => {
     const trimmed = newLabel.trim()
     if (!trimmed) return
-    await onAdd(trimmed, newIcon)
+    await onAdd(trimmed, newIcon, newIsLinks ? 'links' : 'todos')
     setNewLabel('')
     setNewIcon('📋')
+    setNewIsLinks(false)
   }
 
   const startEdit = (section: Section) => {
@@ -266,6 +268,15 @@ export default function SectionManager({
                     Add
                   </button>
                 </div>
+                <label className="mt-2 flex items-center gap-2 text-xs text-muted cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={newIsLinks}
+                    onChange={(e) => setNewIsLinks(e.target.checked)}
+                    className="accent-current"
+                  />
+                  Links section (saved links instead of Today / Soon / Someday)
+                </label>
               </div>
             </div>
           </motion.div>

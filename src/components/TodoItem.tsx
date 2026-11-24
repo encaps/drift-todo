@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { motion, AnimatePresence, Reorder, useDragControls, type PanInfo } from 'framer-motion'
 import type { Todo, Category } from '@/lib/types'
 import { CATEGORIES } from '@/lib/types'
+import { linkify } from '@/lib/linkify'
 
 interface TodoItemProps {
   todo: Todo
@@ -160,7 +161,7 @@ export default function TodoItem({
                   ${todo.completed ? 'line-through text-muted' : 'text-foreground'}
                 `}
               >
-                {todo.text}
+                {linkify(todo.text)}
               </p>
             )}
           </div>

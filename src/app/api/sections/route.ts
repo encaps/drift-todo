@@ -10,7 +10,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   const sql = getDb()
-  const { key, label, icon } = await request.json()
+  const { key, label, icon, kind } = await request.json()
 
   if (!key || !label) {
     return Response.json({ error: 'key and label are required' }, { status: 400 })
@@ -20,8 +20,8 @@ export async function POST(request: Request) {
   const [{ max }] = await sql`SELECT COALESCE(MAX(position), -1) AS max FROM sections`
 
   const rows = await sql`
-    INSERT INTO sections (key, label, icon, position)
-    VALUES (${key}, ${label}, ${icon || '📋'}, ${max + 1})
+    INSERT INTO sections (key, label, icon, position, kind)
+    VALUES (${key}, ${label}, ${icon || '📋'}, ${max + 1}, ${kind === 'links' ? 'links' : 'todos'})
     RETURNING *
   `
   return Response.json(rows[0], { status: 201 })

@@ -52,3 +52,12 @@ CREATE INDEX IF NOT EXISTS idx_todos_view ON todos (view);
 --    ALTER TABLE todos DROP CONSTRAINT IF EXISTS todos_view_check;
 -- 3. Add index on sections:
 --    CREATE INDEX IF NOT EXISTS idx_sections_position ON sections (position);
+
+-- Migration: Read later (saved links). Idempotent.
+ALTER TABLE todos ADD COLUMN IF NOT EXISTS url TEXT;
+ALTER TABLE todos ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE sections ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'todos';
+CREATE INDEX IF NOT EXISTS idx_todos_url ON todos (url) WHERE url IS NOT NULL;
+INSERT INTO sections (key, label, icon, position, kind)
+SELECT 'read-later', 'Read later', '🔖', COALESCE(MAX(position), -1) + 1, 'links' FROM sections
+ON CONFLICT (key) DO NOTHING;

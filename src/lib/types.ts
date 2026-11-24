@@ -7,7 +7,11 @@ export interface Section {
   icon: string
   position: number
   created_at: string
+  // 'links' sections show a flat list of saved links instead of the three lanes
+  kind?: SectionKind
 }
+
+export type SectionKind = 'todos' | 'links'
 
 export interface Todo {
   id: string
@@ -18,6 +22,9 @@ export interface Todo {
   position: number
   created_at: string
   completed_at: string | null
+  // Set for saved links; text then holds the page title
+  url?: string | null
+  description?: string | null
 }
 
 export const DEFAULT_SECTIONS: Section[] = [

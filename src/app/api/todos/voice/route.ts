@@ -1,5 +1,5 @@
-import { timingSafeEqual } from 'node:crypto'
 import { getDb } from '@/lib/db'
+import { authorized } from '@/lib/voiceAuth'
 import type { Category } from '@/lib/types'
 
 // Called by the "Drift" iOS Shortcut: Siri dictates a sentence and posts it here.
@@ -22,15 +22,6 @@ const LANE_WORDS: Record<string, Category> = {
 const DEFAULT_LANE: Category = 'daily'
 const DEFAULT_VIEW = 'private'
 const LANE_LABELS: Record<Category, string> = { daily: 'Today', soon: 'Soon', someday: 'Someday' }
-
-function authorized(request: Request): boolean {
-  const expected = process.env.VOICE_TOKEN
-  if (!expected) return false
-  const given = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '') ?? ''
-  const a = Buffer.from(given)
-  const b = Buffer.from(expected)
-  return a.length === b.length && timingSafeEqual(a, b)
-}
 
 const normalize = (word: string) => word.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
 

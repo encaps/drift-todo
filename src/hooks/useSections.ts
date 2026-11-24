@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import type { Section } from '@/lib/types'
+import type { Section, SectionKind } from '@/lib/types'
 import { DEFAULT_SECTIONS } from '@/lib/types'
 
 const STORAGE_KEY = 'drift-sections'
@@ -61,7 +61,7 @@ export function useSections() {
   }, [sections, mode, loading])
 
   const addSection = useCallback(
-    async (label: string, icon: string) => {
+    async (label: string, icon: string, kind: SectionKind = 'todos') => {
       const key = label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
       const maxPos = sections.reduce((max, s) => Math.max(max, s.position), -1)
 
@@ -72,6 +72,7 @@ export function useSections() {
         icon: icon || '📋',
         position: maxPos + 1,
         created_at: new Date().toISOString(),
+        kind,
       }
 
       setSections((prev) => [...prev, section])
@@ -80,7 +81,7 @@ export function useSections() {
         const created = await apiFetch<Section>('/api/sections', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ key, label, icon: icon || '📋' }),
+          body: JSON.stringify({ key, label, icon: icon || '📋', kind }),
         })
         if (created) {
           // Update with server-generated ID

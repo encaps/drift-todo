@@ -152,6 +152,44 @@ export function useTodos(view: string) {
     [todos, mode, view]
   )
 
+  // Links go to the server, which fetches the title; until the next poll the
+  // card shows the bare URL
+  const addLink = useCallback(
+    async (url: string) => {
+      const minPos = todos
+        .filter((t) => !t.completed)
+        .reduce((min, t) => Math.min(min, t.position), 0)
+
+      const link: Todo = {
+        id: crypto.randomUUID(),
+        text: url,
+        url,
+        description: null,
+        category: 'someday',
+        view,
+        completed: false,
+        position: minPos - 1,
+        created_at: new Date().toISOString(),
+        completed_at: null,
+      }
+
+      // Saving a URL that is already in the list moves it to the top
+      setTodos((prev) => [link, ...prev.filter((t) => t.url !== url)])
+
+      if (mode === 'postgres') {
+        const saved = await apiFetch<Todo>('/api/links', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: link.id, url, view }),
+        })
+        if (saved) {
+          setTodos((prev) => [saved, ...prev.filter((t) => t.id !== link.id && t.id !== saved.id)])
+        }
+      }
+    },
+    [todos, mode, view]
+  )
+
   const completeTodo = useCallback(
     async (id: string) => {
       setTodos((prev) =>
@@ -315,6 +353,7 @@ export function useTodos(view: string) {
     loading,
     mode,
     addTodo,
+    addLink,
     completeTodo,
     uncompleteTodo,
     deleteTodo,
