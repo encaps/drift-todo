@@ -1,5 +1,5 @@
 import { lookup } from 'node:dns/promises'
-import { isIP } from 'node:net'
+import { BlockList, isIP } from 'node:net'
 
 export interface LinkMeta {
   title: string | null
@@ -67,29 +67,27 @@ async function readCapped(res: Response): Promise<string> {
   return html
 }
 
-function isPrivateV4(ip: string): boolean {
-  const [a, b] = ip.split('.').map(Number)
-  return (
-    a === 0 || a === 10 || a === 127 ||
-    (a === 100 && b >= 64 && b <= 127) || // carrier-grade NAT
-    (a === 169 && b === 254) ||
-    (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168) ||
-    a >= 224 // multicast and reserved
-  )
-}
+// Parsed by subnet, not by string prefix: the URL parser turns
+// [::ffff:127.0.0.1] into [::ffff:7f00:1], which a text match misses
+// Separate lists, since a BlockList also matches IPv4 addresses against
+// IPv4-mapped IPv6 rules, and ::ffff:0:0/96 would then block every IPv4 host
+const BLOCKED_V4 = new BlockList()
+const BLOCKED_V6 = new BlockList()
+for (const [net, prefix] of [
+  ['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10], ['127.0.0.0', 8], ['169.254.0.0', 16],
+  ['172.16.0.0', 12], ['192.0.0.0', 24], ['192.168.0.0', 16], ['198.18.0.0', 15], ['224.0.0.0', 3],
+] as const) BLOCKED_V4.addSubnet(net, prefix, 'ipv4')
+for (const [net, prefix] of [
+  ['::', 96], // unspecified, loopback and IPv4-compatible
+  ['::ffff:0:0', 96], // IPv4-mapped
+  ['64:ff9b::', 96], // NAT64
+  ['fc00::', 7], ['fe80::', 10], ['ff00::', 8],
+] as const) BLOCKED_V6.addSubnet(net, prefix, 'ipv6')
 
 function isPrivateAddress(ip: string): boolean {
-  if (isIP(ip) === 4) return isPrivateV4(ip)
-  const v6 = ip.toLowerCase()
-  const mapped = v6.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)
-  if (mapped) return isPrivateV4(mapped[1])
-  return (
-    v6 === '::' || v6 === '::1' ||
-    v6.startsWith('fc') || v6.startsWith('fd') || // unique local
-    /^fe[89ab]/.test(v6) || // link-local
-    v6.startsWith('ff') // multicast
-  )
+  const family = isIP(ip)
+  if (!family) return true
+  return family === 4 ? BLOCKED_V4.check(ip, 'ipv4') : BLOCKED_V6.check(ip, 'ipv6')
 }
 
 // The save endpoints are open, so without this anyone could make the server
